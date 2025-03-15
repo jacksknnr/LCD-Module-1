@@ -1,0 +1,88 @@
+---
+title: "LCD Module 1 Content"
+format: html
+editor: visual
+---
+
+#Tutorial 1:
+
+#########################################################
+## LCD Module 1 tutorial: analysing a dataset
+## J Kasza 2024-08-06
+## UPDATED 2024-08-12: corrections to the "missing data" sections at the end of the 
+##                      file; and reducing the number of individuals included to 50
+#########################################################
+
+##load the lme4 package:
+library(lme4)
+
+##Generate some data
+set.seed(1234)
+##Generate the individual random effects:
+si <- rnorm(50, mean=0, sd=10)
+si <- rep(si, each = 2)
+##generate ids:
+id <- rep(seq(1:50), each=2)
+##generate a treatment variable:
+treatment <- rep(c(0,1), times=50)
+
+##Generate the random errors for each observation:
+eij <- rnorm(2*50, mean=0, sd=7)
+
+##Generate the outcomes:
+Yij <- 300 + 10*treatment + si + eij
+
+##Put all the elements together:
+tutedata <- as.data.frame(cbind(Yij, treatment, id, si, eij))
+
+##Let's get rid of some of this data 
+##(we won't really get rid of it, 
+##but we'll generate a missingness indicator)
+
+randomnumber = rnorm(100,0,1)
+randomorder <- rep(c(1,2), times=50)[order(id, randomnumber )]
+missingind <- rep(F, 100)
+missingind[1:20] <-  randomorder[1:20] == 1  
+
+tutedata$missingind <- missingind
+
+##Alternatively, could load the dataset
+##generated in Stata:
+#tutedata <- read.csv("LCD_M1_tutedata.csv")
+
+##Ignore that we have correlated data:
+summary(lm(Yij ~ treatment, data=tutedata))
+
+##Account for correlated data using a mixed model:
+summary(lmer(Yij ~ treatment + (1|id), data=tutedata))
+
+##Fit model to the "non-missing" data
+summary(lmer(Yij ~ treatment + (1|id), data=tutedata[tutedata$missingind ==F,]))
+
+##Fit model to paired data only:
+summary(lmer(Yij ~ treatment + (1|id), 
+             data=tutedata[tutedata$missingind ==F & tutedata$id>10,]))
+
+##Fit model to individual data only:
+summary(lm(Yij ~ treatment , 
+             data=tutedata[tutedata$missingind ==F & tutedata$id<=10,]))
+
+##What happens if we try to fit the mixed model to the individuals with 
+## a single measurement only?
+summary(lmer(Yij ~ treatment + (1|id), 
+           data=tutedata[tutedata$missingind ==F & tutedata$id<=10,]))
+##Answer: we get the following error:
+#Error in h(simpleError(msg, call)) : 
+#  error in evaluating the argument 'object' in selecting a method for function 'summary': 
+#number of levels of each grouping factor must be < number of observations (problems: id)
+
+##That is, this error is telling us that we only have a single measurement for 
+##each group- and thus we can't obtain an estimate of the within-cluster 
+##(here within-individual) variance.
+
+
+
+
+
+
+
